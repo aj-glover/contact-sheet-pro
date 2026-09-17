@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { CameraDevice, CameraSettings, defaultCameraSettings } from '../data/cameras';
+import { CCApiClient } from '../services/ccapi';
 
 interface ShootingPanelProps {
   camera: CameraDevice;
@@ -8,9 +9,11 @@ interface ShootingPanelProps {
   onOpenLiveView: () => void;
   settings: CameraSettings;
   onSettingsChange: (settings: CameraSettings) => void;
+  ccapiClient?: CCApiClient | null;
 }
 
-export default function ShootingPanel({ camera, onClose, onCapture, onOpenLiveView, settings, onSettingsChange }: ShootingPanelProps) {
+export default function ShootingPanel({ camera, onClose, onCapture, onOpenLiveView, settings, onSettingsChange, ccapiClient }: ShootingPanelProps) {
+  const isCCAPI = ccapiClient !== null && ccapiClient !== undefined;
   const [isCapturing, setIsCapturing] = useState(false);
   const [captureFlash, setCaptureFlash] = useState(false);
   const [liveViewActive, setLiveViewActive] = useState(false);
@@ -20,33 +23,42 @@ export default function ShootingPanel({ camera, onClose, onCapture, onOpenLiveVi
   const [transferring, setTransferring] = useState(false);
   const [transferProgress, setTransferProgress] = useState(0);
 
-  const handleCapture = () => {
+  const handleCapture = async () => {
     setIsCapturing(true);
     setCaptureFlash(true);
     
-    // Simulate shutter
-    setTimeout(() => {
-      setCaptureFlash(false);
-      setIsCapturing(false);
-      setSessionShots(prev => prev + 1);
-      onCapture();
-      
-      // Simulate transfer
-      if (autoImport) {
-        setTransferring(true);
-        setTransferProgress(0);
-        const interval = setInterval(() => {
-          setTransferProgress(prev => {
-            if (prev >= 100) {
-              clearInterval(interval);
-              setTimeout(() => setTransferring(false), 300);
-              return 100;
-            }
-            return prev + 8;
-          });
-        }, 50);
+    try {
+      if (isCCAPI && ccapiClient) {
+        // Use real CCAPI capture
+        await ccapiClient.capture();
+      } else {
+        // Simulate shutter
+        await new Promise(resolve => setTimeout(resolve, 150));
       }
-    }, 150);
+    } catch (err) {
+      console.error('Capture failed:', err);
+    }
+    
+    setCaptureFlash(false);
+    setIsCapturing(false);
+    setSessionShots(prev => prev + 1);
+    onCapture();
+    
+    // Simulate transfer
+    if (autoImport) {
+      setTransferring(true);
+      setTransferProgress(0);
+      const interval = setInterval(() => {
+        setTransferProgress(prev => {
+          if (prev >= 100) {
+            clearInterval(interval);
+            setTimeout(() => setTransferring(false), 300);
+            return 100;
+          }
+          return prev + 8;
+        });
+      }, 50);
+    }
   };
 
   const handleLiveViewToggle = () => {
@@ -79,9 +91,23 @@ export default function ShootingPanel({ camera, onClose, onCapture, onOpenLiveVi
             <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-[#181825]"></div>
           </div>
           <div>
-            <p className="text-xs font-semibold text-white">{camera.name}</p>
+            <div className="flex items-center gap-2">
+              <p className="text-xs font-semibold text-white">{camera.name}</p>
+              {isCCAPI && (
+                <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-red-500/15 text-red-400 text-[9px] font-bold tracking-wide">
+                  CCAPI
+                </span>
+              )}
+            </div>
             <p className="text-[10px] text-[#6c7086] capitalize flex items-center gap-1">
-              {camera.connectionType === 'tethered' ? (
+              {isCCAPI ? (
+                <>
+                  <svg className="w-2.5 h-2.5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101" />
+                  </svg>
+                  Canon CCAPI · {ccapiClient?.getBaseUrl().replace('http://', '').split('/')[0]}
+                </>
+              ) : camera.connectionType === 'tethered' ? (
                 <>
                   <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101" />

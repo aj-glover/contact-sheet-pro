@@ -1,14 +1,16 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { CameraDevice, CameraSettings } from '../data/cameras';
+import { CCApiClient } from '../services/ccapi';
 
 interface LiveViewPanelProps {
   camera: CameraDevice;
   settings: CameraSettings;
   onClose: () => void;
   onCapture: () => void;
+  ccapiClient?: CCApiClient | null;
 }
 
-export default function LiveViewPanel({ camera, settings, onClose, onCapture }: LiveViewPanelProps) {
+export default function LiveViewPanel({ camera, settings, onClose, onCapture, ccapiClient }: LiveViewPanelProps) {
   const [showGrid, setShowGrid] = useState(true);
   const [showFocusPoints, setShowFocusPoints] = useState(true);
   const [showHistogram, setShowHistogram] = useState(true);
@@ -19,12 +21,32 @@ export default function LiveViewPanel({ camera, settings, onClose, onCapture }: 
   const [activeFocusPoint, setActiveFocusPoint] = useState({ x: 50, y: 50 });
   const [captureFlash, setCaptureFlash] = useState(false);
   const [focusConfirmed, setFocusConfirmed] = useState(false);
+  const [liveViewStreamUrl, setLiveViewStreamUrl] = useState<string | null>(null);
+  const [streamError, setStreamError] = useState(false);
+  const liveViewImgRef = useRef<HTMLImageElement>(null);
+
+  // Initialize CCAPI live view stream
+  useEffect(() => {
+    if (ccapiClient) {
+      const url = ccapiClient.getLiveViewStreamUrl();
+      setLiveViewStreamUrl(url);
+    }
+  }, [ccapiClient]);
 
   // Handle capture with flash effect
-  const handleCaptureWithFlash = () => {
+  const handleCaptureWithFlash = async () => {
     setCaptureFlash(true);
     setTimeout(() => setCaptureFlash(false), 150);
-    onCapture();
+    
+    if (ccapiClient) {
+      try {
+        await ccapiClient.capture();
+      } catch (err) {
+        console.error('CCAPI capture failed:', err);
+      }
+    } else {
+      onCapture();
+    }
   };
 
   // Handle focus point click with confirmation
@@ -259,8 +281,20 @@ export default function LiveViewPanel({ camera, settings, onClose, onCapture }: 
               <div className="absolute inset-0 pointer-events-none" style={{
                 background: 'radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.4) 100%)',
               }}></div>
-              {/* Simulated scene - landscape with depth */}
-              <div className="absolute inset-0">
+              {/* CCAPI Live View Stream */}
+              {liveViewStreamUrl && !streamError && (
+                <img
+                  ref={liveViewImgRef}
+                  src={liveViewStreamUrl}
+                  alt="Live View"
+                  className="absolute inset-0 w-full h-full object-contain"
+                  onError={() => setStreamError(true)}
+                  crossOrigin="anonymous"
+                />
+              )}
+
+              {/* Simulated scene - landscape with depth (fallback when no stream) */}
+              <div className={`absolute inset-0 ${liveViewStreamUrl && !streamError ? 'opacity-0' : 'opacity-100'}`}>
                 {/* Sky gradient */}
                 <div className="absolute inset-0 bg-gradient-to-b from-slate-600 via-slate-500 to-slate-700"></div>
                 
@@ -398,6 +432,20 @@ export default function LiveViewPanel({ camera, settings, onClose, onCapture }: 
                 <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></div>
                 <span className="text-[10px] text-white font-mono">LIVE</span>
               </div>
+              {ccapiClient && (
+                <div className={`flex items-center gap-1.5 backdrop-blur-sm rounded px-2 py-1 ${
+                  liveViewStreamUrl && !streamError ? 'bg-emerald-500/20' : 'bg-amber-500/20'
+                }`}>
+                  <div className={`w-1.5 h-1.5 rounded-full ${
+                    liveViewStreamUrl && !streamError ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'
+                  }`}></div>
+                  <span className={`text-[10px] font-mono ${
+                    liveViewStreamUrl && !streamError ? 'text-emerald-300' : 'text-amber-300'
+                  }`}>
+                    {liveViewStreamUrl && !streamError ? 'CCAPI Stream' : 'Simulated'}
+                  </span>
+                </div>
+              )}
               <div className="bg-black/60 backdrop-blur-sm rounded px-2 py-1">
                 <span className="text-[10px] text-white font-mono">00:12:34</span>
               </div>
@@ -405,6 +453,14 @@ export default function LiveViewPanel({ camera, settings, onClose, onCapture }: 
 
             {/* Top-right info overlay */}
             <div className="absolute top-4 right-4 flex flex-col gap-1 items-end">
+              {ccapiClient && (
+                <div className="flex items-center gap-1.5 bg-red-500/20 backdrop-blur-sm rounded px-2 py-1">
+                  <svg className="w-3 h-3 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                  </svg>
+                  <span className="text-[10px] text-red-300 font-mono font-bold">CCAPI</span>
+                </div>
+              )}
               <div className="bg-black/60 backdrop-blur-sm rounded px-2 py-1">
                 <span className="text-[10px] text-white font-mono">{settings.imageQuality}</span>
               </div>
