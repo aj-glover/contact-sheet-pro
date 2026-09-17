@@ -4,13 +4,12 @@ import Toolbar from './components/Toolbar';
 import ImageGrid from './components/ImageGrid';
 import DetailPanel from './components/DetailPanel';
 import CameraConnectModal from './components/CameraConnectModal';
-import CanonConnectPanel from './components/CanonConnectPanel';
+import UniversalConnectPanel from './components/UniversalConnectPanel';
 import ShootingPanel from './components/ShootingPanel';
 import LiveViewPanel from './components/LiveViewPanel';
 import { images, ImageItem } from './data/images';
 import { availableCameras, CameraDevice, ConnectionType, CameraSettings, defaultCameraSettings } from './data/cameras';
-import { CCApiClient, ShootingSettings as CCApiShootingSettings } from './services/ccapi';
-import { CanonConnectionInfo } from './components/CanonConnectPanel';
+import { UnifiedCameraClient, UnifiedCameraInfo } from './services/unified-camera';
 
 export default function App() {
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
@@ -20,22 +19,24 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showDetailPanel, setShowDetailPanel] = useState(false);
   
-  // Camera/shooting state
+  // Generic camera state (simulated)
   const [cameras, setCameras] = useState<CameraDevice[]>(availableCameras);
   const [showConnectModal, setShowConnectModal] = useState(false);
-  const [showCanonPanel, setShowCanonPanel] = useState(false);
+  
+  // Universal camera API state
+  const [showUniversalPanel, setShowUniversalPanel] = useState(false);
+  const [cameraClient, setCameraClient] = useState<UnifiedCameraClient | null>(null);
+  const [cameraInfo, setCameraInfo] = useState<UnifiedCameraInfo | null>(null);
+  
+  // Shooting/LiveView state
   const [showShootingPanel, setShowShootingPanel] = useState(false);
   const [showLiveView, setShowLiveView] = useState(false);
   const [activeCameraId, setActiveCameraId] = useState<string | null>(null);
   const [cameraSettings, setCameraSettings] = useState<CameraSettings>(defaultCameraSettings);
 
-  // Canon CCAPI state
-  const [ccapiClient, setCcapiClient] = useState<CCApiClient | null>(null);
-  const [ccapiConnectionInfo, setCcapiConnectionInfo] = useState<CanonConnectionInfo | null>(null);
-
   const connectedCameras = cameras.filter(c => c.status === 'connected');
   const activeCamera = cameras.find(c => c.id === activeCameraId) || null;
-  const isCanonConnected = ccapiClient !== null && ccapiConnectionInfo?.connected;
+  const isApiCameraConnected = cameraClient !== null && cameraInfo !== null;
 
   const filteredImages = images.filter((img) => {
     const matchesFilter = activeFilter === 'all' || img.category === activeFilter;
@@ -89,96 +90,96 @@ export default function App() {
     }
   }, [activeCameraId]);
 
-  // Canon CCAPI handlers
-  const handleCanonConnected = useCallback((client: CCApiClient, info: CanonConnectionInfo) => {
-    setCcapiClient(client);
-    setCcapiConnectionInfo(info);
-    setShowCanonPanel(false);
+  // Universal API camera handlers
+  const handleCameraConnected = useCallback(async (client: UnifiedCameraClient, info: UnifiedCameraInfo) => {
+    setCameraClient(client);
+    setCameraInfo(info);
+    setShowUniversalPanel(false);
 
-    // Update camera settings from CCAPI
-    if (info.settings) {
-      const newSettings: CameraSettings = {
-        aperture: info.settings.av?.currentDisplay || info.settings.av?.value || defaultCameraSettings.aperture,
-        shutterSpeed: info.settings.tv?.currentDisplay || info.settings.tv?.value || defaultCameraSettings.shutterSpeed,
-        iso: info.settings.iso?.currentDisplay || info.settings.iso?.value || defaultCameraSettings.iso,
-        whiteBalance: info.settings.wb?.currentDisplay || info.settings.wb?.value || defaultCameraSettings.whiteBalance,
-        focusMode: info.settings.afmethod?.currentDisplay || info.settings.afmethod?.value || defaultCameraSettings.focusMode,
-        driveMode: info.settings.drive?.currentDisplay || info.settings.drive?.value || defaultCameraSettings.driveMode,
-        meteringMode: info.settings.metering?.currentDisplay || info.settings.metering?.value || defaultCameraSettings.meteringMode,
-        imageQuality: info.settings.stillimagequality?.currentDisplay || info.settings.stillimagequality?.value || defaultCameraSettings.imageQuality,
-      };
-      setCameraSettings(newSettings);
+    // Fetch settings from camera
+    try {
+      const settings = await client.getSettings();
+      setCameraSettings({
+        aperture: settings.aperture,
+        shutterSpeed: settings.shutterSpeed,
+        iso: settings.iso,
+        whiteBalance: settings.whiteBalance,
+        focusMode: settings.focusMode,
+        driveMode: settings.driveMode,
+        meteringMode: settings.meteringMode,
+        imageQuality: settings.imageQuality,
+      });
+    } catch (err) {
+      console.error('Failed to fetch settings:', err);
     }
 
-    // Auto-open shooting panel when Canon connects
     setShowShootingPanel(true);
   }, []);
 
-  const handleCanonDisconnected = useCallback(() => {
-    setCcapiClient(null);
-    setCcapiConnectionInfo(null);
+  const handleCameraDisconnected = useCallback(() => {
+    setCameraClient(null);
+    setCameraInfo(null);
     setShowShootingPanel(false);
     setShowLiveView(false);
   }, []);
 
   const handleCapture = useCallback(async () => {
-    if (ccapiClient) {
+    if (cameraClient) {
       try {
-        await ccapiClient.capture();
+        await cameraClient.capture();
       } catch (err) {
-        console.error('CCAPI capture failed:', err);
+        console.error('Capture failed:', err);
       }
     }
-  }, [ccapiClient]);
+  }, [cameraClient]);
 
   const handleSettingsChange = useCallback(async (newSettings: CameraSettings) => {
     setCameraSettings(newSettings);
     
-    if (ccapiClient) {
+    if (cameraClient) {
       try {
-        // Sync settings to camera via CCAPI
         if (newSettings.aperture !== cameraSettings.aperture) {
-          await ccapiClient.setAperture(newSettings.aperture);
+          await cameraClient.setAperture(newSettings.aperture);
         }
         if (newSettings.shutterSpeed !== cameraSettings.shutterSpeed) {
-          await ccapiClient.setShutterSpeed(newSettings.shutterSpeed);
+          await cameraClient.setShutterSpeed(newSettings.shutterSpeed);
         }
         if (newSettings.iso !== cameraSettings.iso) {
-          await ccapiClient.setISO(newSettings.iso);
+          await cameraClient.setISO(newSettings.iso);
         }
         if (newSettings.whiteBalance !== cameraSettings.whiteBalance) {
-          await ccapiClient.setWhiteBalance(newSettings.whiteBalance);
+          await cameraClient.setWhiteBalance(newSettings.whiteBalance);
         }
         if (newSettings.meteringMode !== cameraSettings.meteringMode) {
-          await ccapiClient.setMetering(newSettings.meteringMode);
+          await cameraClient.setMeteringMode(newSettings.meteringMode);
         }
         if (newSettings.driveMode !== cameraSettings.driveMode) {
-          await ccapiClient.setDriveMode(newSettings.driveMode);
+          await cameraClient.setDriveMode(newSettings.driveMode);
         }
         if (newSettings.imageQuality !== cameraSettings.imageQuality) {
-          await ccapiClient.setImageQuality(newSettings.imageQuality);
+          await cameraClient.setImageQuality(newSettings.imageQuality);
         }
       } catch (err) {
-        console.error('CCAPI settings sync failed:', err);
+        console.error('Settings sync failed:', err);
       }
     }
-  }, [ccapiClient, cameraSettings]);
+  }, [cameraClient, cameraSettings]);
 
   const handleOpenShooting = () => {
-    if (isCanonConnected) {
+    if (isApiCameraConnected) {
       setShowShootingPanel(true);
     } else if (connectedCameras.length > 0) {
       setActiveCameraId(connectedCameras[0].id);
       setShowShootingPanel(true);
     } else {
-      setShowCanonPanel(true);
+      setShowUniversalPanel(true);
     }
   };
 
   const handleOpenLiveView = async () => {
-    if (ccapiClient) {
+    if (cameraClient) {
       try {
-        await ccapiClient.startLiveView();
+        await cameraClient.startLiveView();
       } catch (err) {
         console.error('Failed to start live view:', err);
       }
@@ -187,15 +188,47 @@ export default function App() {
   };
 
   const handleCloseLiveView = async () => {
-    if (ccapiClient) {
+    if (cameraClient) {
       try {
-        await ccapiClient.stopLiveView();
+        await cameraClient.stopLiveView();
       } catch (err) {
         console.error('Failed to stop live view:', err);
       }
     }
     setShowLiveView(false);
   };
+
+  // Build display camera for API-connected cameras
+  const getDisplayCamera = (): CameraDevice => {
+    if (activeCamera) return activeCamera;
+    if (cameraInfo) {
+      const mfrColors: Record<string, string> = {
+        canon: 'from-red-500 to-red-700',
+        sony: 'from-blue-500 to-blue-700',
+        nikon: 'from-yellow-500 to-yellow-700',
+        fujifilm: 'from-emerald-500 to-emerald-700',
+      };
+      return {
+        id: 'api-camera',
+        name: cameraInfo.modelName,
+        model: cameraInfo.modelName,
+        serial: cameraInfo.serialNumber,
+        connectionType: 'wireless',
+        status: 'connected',
+        batteryLevel: cameraInfo.batteryLevel,
+        storageUsed: 0,
+        storageTotal: 128,
+        shotsRemaining: 9999,
+        signalStrength: 100,
+        transferSpeed: cameraClient?.getManufacturerName() || 'API',
+        firmware: cameraInfo.firmwareVersion,
+      };
+    }
+    return connectedCameras[0] || availableCameras[0];
+  };
+
+  const displayCamera = getDisplayCamera();
+  const hasAnyCamera = isApiCameraConnected || connectedCameras.length > 0;
 
   return (
     <div className="h-screen w-screen flex flex-col bg-[#1e1e2e] text-white overflow-hidden">
@@ -210,19 +243,21 @@ export default function App() {
           <h1 className="text-lg font-semibold tracking-tight">Contact Sheet Pro</h1>
           
           {/* Connected cameras indicator */}
-          {(connectedCameras.length > 0 || isCanonConnected) && (
+          {hasAnyCamera && (
             <div className="flex items-center gap-1.5 ml-3 pl-3 border-l border-[#313244]">
-              {isCanonConnected && ccapiConnectionInfo?.deviceInfo && (
+              {isApiCameraConnected && cameraInfo && (
                 <button
                   onClick={handleOpenShooting}
-                  className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-red-500/10 hover:bg-red-500/20 transition-colors"
-                  title={`Canon ${ccapiConnectionInfo.deviceInfo.productname}`}
+                  className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-violet-500/10 hover:bg-violet-500/20 transition-colors"
+                  title={cameraInfo.modelName}
                 >
-                  <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse"></span>
-                  <span className="text-[11px] text-red-300 font-medium">
-                    {ccapiConnectionInfo.deviceInfo.productname.split(' ').slice(0, 2).join(' ')}
+                  <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse"></span>
+                  <span className="text-[11px] text-violet-300 font-medium">
+                    {cameraInfo.modelName.split(' ').slice(0, 2).join(' ')}
                   </span>
-                  <span className="text-[9px] text-red-400/60 font-mono">CCAPI</span>
+                  <span className="text-[9px] text-violet-400/60 font-mono uppercase">
+                    {cameraClient?.getManufacturer()}
+                  </span>
                 </button>
               )}
               {connectedCameras.map(cam => (
@@ -241,35 +276,24 @@ export default function App() {
         </div>
         
         <div className="flex items-center gap-2">
-          {/* Canon CCAPI Button */}
+          {/* Connect Camera Button */}
           <button
-            onClick={() => setShowCanonPanel(true)}
+            onClick={() => setShowUniversalPanel(true)}
             className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${
-              isCanonConnected
-                ? 'bg-red-500/10 border-red-500/20 text-red-300 hover:bg-red-500/20'
-                : 'bg-red-500/5 border-red-500/15 text-red-400 hover:bg-red-500/10 hover:border-red-500/30'
+              isApiCameraConnected
+                ? 'bg-violet-500/10 border-violet-500/20 text-violet-300 hover:bg-violet-500/20'
+                : 'bg-violet-500/5 border-violet-500/15 text-violet-400 hover:bg-violet-500/10 hover:border-violet-500/30'
             }`}
           >
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
-            {isCanonConnected ? 'Canon Connected' : 'Canon CCAPI'}
-          </button>
-
-          {/* Generic Camera Connect */}
-          <button
-            onClick={() => setShowConnectModal(true)}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/20 text-violet-300 text-xs font-medium transition-all hover:border-violet-500/40"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-            </svg>
-            {connectedCameras.length > 0 ? 'Cameras' : 'Connect'}
+            {isApiCameraConnected ? `${cameraClient?.getManufacturerName()} Connected` : 'Connect Camera'}
           </button>
 
           {/* Live View Button */}
-          {(isCanonConnected || connectedCameras.length > 0) && (
+          {hasAnyCamera && (
             <button
               onClick={handleOpenLiveView}
               className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-300 text-xs font-medium transition-all hover:border-red-500/40"
@@ -280,7 +304,7 @@ export default function App() {
           )}
 
           {/* Shooting Button */}
-          {(isCanonConnected || connectedCameras.length > 0) && !showShootingPanel && (
+          {hasAnyCamera && !showShootingPanel && (
             <button
               onClick={handleOpenShooting}
               className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-300 text-xs font-medium transition-all hover:border-red-500/40"
@@ -322,7 +346,7 @@ export default function App() {
             onClearSelection={() => { setSelectedImages([]); setShowDetailPanel(false); }}
             totalCount={filteredImages.length}
             onOpenShooting={handleOpenShooting}
-            hasCamera={isCanonConnected || connectedCameras.length > 0}
+            hasCamera={hasAnyCamera}
           />
 
           {/* Image Grid */}
@@ -334,29 +358,15 @@ export default function App() {
           />
 
           {/* Shooting Panel */}
-          {showShootingPanel && (isCanonConnected || activeCamera) && (
+          {showShootingPanel && hasAnyCamera && (
             <ShootingPanel 
-              camera={activeCamera || {
-                id: 'ccapi',
-                name: ccapiConnectionInfo?.deviceInfo?.productname || 'Canon Camera',
-                model: ccapiConnectionInfo?.deviceInfo?.productname || 'Canon',
-                serial: ccapiConnectionInfo?.deviceInfo?.uniqueid || 'CCAPI',
-                connectionType: 'wireless',
-                status: 'connected',
-                batteryLevel: ccapiConnectionInfo?.battery?.level || 100,
-                storageUsed: 0,
-                storageTotal: 128,
-                shotsRemaining: 9999,
-                signalStrength: 100,
-                transferSpeed: 'CCAPI',
-                firmware: ccapiConnectionInfo?.deviceInfo?.firmwareversion || '1.0',
-              }}
+              camera={displayCamera}
               onClose={() => setShowShootingPanel(false)}
               onCapture={handleCapture}
               onOpenLiveView={handleOpenLiveView}
               settings={cameraSettings}
               onSettingsChange={handleSettingsChange}
-              ccapiClient={ccapiClient}
+              ccapiClient={cameraClient}
             />
           )}
         </div>
@@ -370,7 +380,7 @@ export default function App() {
         )}
       </div>
 
-      {/* Camera Connect Modal (Generic) */}
+      {/* Generic Camera Connect Modal */}
       <CameraConnectModal
         isOpen={showConnectModal}
         onClose={() => setShowConnectModal(false)}
@@ -379,38 +389,23 @@ export default function App() {
         onDisconnect={handleDisconnectCamera}
       />
 
-      {/* Canon CCAPI Panel */}
-      <CanonConnectPanel
-        isOpen={showCanonPanel}
-        onClose={() => setShowCanonPanel(false)}
-        onConnected={handleCanonConnected}
-        onDisconnected={handleCanonDisconnected}
-        connectionInfo={ccapiConnectionInfo}
-        client={ccapiClient}
+      {/* Universal Camera Connect Panel */}
+      <UniversalConnectPanel
+        isOpen={showUniversalPanel}
+        onClose={() => setShowUniversalPanel(false)}
+        onConnected={handleCameraConnected}
+        onDisconnected={handleCameraDisconnected}
+        connectionInfo={cameraClient && cameraInfo ? { client: cameraClient, info: cameraInfo } : null}
       />
 
       {/* Live View Panel */}
-      {showLiveView && (isCanonConnected || activeCamera) && (
+      {showLiveView && hasAnyCamera && (
         <LiveViewPanel
-          camera={activeCamera || {
-            id: 'ccapi',
-            name: ccapiConnectionInfo?.deviceInfo?.productname || 'Canon Camera',
-            model: ccapiConnectionInfo?.deviceInfo?.productname || 'Canon',
-            serial: ccapiConnectionInfo?.deviceInfo?.uniqueid || 'CCAPI',
-            connectionType: 'wireless',
-            status: 'connected',
-            batteryLevel: ccapiConnectionInfo?.battery?.level || 100,
-            storageUsed: 0,
-            storageTotal: 128,
-            shotsRemaining: 9999,
-            signalStrength: 100,
-            transferSpeed: 'CCAPI',
-            firmware: ccapiConnectionInfo?.deviceInfo?.firmwareversion || '1.0',
-          }}
+          camera={displayCamera}
           settings={cameraSettings}
           onClose={handleCloseLiveView}
           onCapture={handleCapture}
-          ccapiClient={ccapiClient}
+          ccapiClient={cameraClient}
         />
       )}
     </div>

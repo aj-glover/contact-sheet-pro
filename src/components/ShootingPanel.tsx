@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { CameraDevice, CameraSettings, defaultCameraSettings } from '../data/cameras';
-import { CCApiClient } from '../services/ccapi';
+import { UnifiedCameraClient } from '../services/unified-camera';
 
 interface ShootingPanelProps {
   camera: CameraDevice;
@@ -9,7 +9,7 @@ interface ShootingPanelProps {
   onOpenLiveView: () => void;
   settings: CameraSettings;
   onSettingsChange: (settings: CameraSettings) => void;
-  ccapiClient?: CCApiClient | null;
+  ccapiClient?: UnifiedCameraClient | null;
 }
 
 export default function ShootingPanel({ camera, onClose, onCapture, onOpenLiveView, settings, onSettingsChange, ccapiClient }: ShootingPanelProps) {
@@ -105,7 +105,7 @@ export default function ShootingPanel({ camera, onClose, onCapture, onOpenLiveVi
                   <svg className="w-2.5 h-2.5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101" />
                   </svg>
-                  Canon CCAPI · {ccapiClient?.getBaseUrl().replace('http://', '').split('/')[0]}
+                  {ccapiClient?.getManufacturerName()} API
                 </>
               ) : camera.connectionType === 'tethered' ? (
                 <>

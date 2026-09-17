@@ -1,13 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { CameraDevice, CameraSettings } from '../data/cameras';
-import { CCApiClient } from '../services/ccapi';
+import { UnifiedCameraClient } from '../services/unified-camera';
 
 interface LiveViewPanelProps {
   camera: CameraDevice;
   settings: CameraSettings;
   onClose: () => void;
   onCapture: () => void;
-  ccapiClient?: CCApiClient | null;
+  ccapiClient?: UnifiedCameraClient | null;
 }
 
 export default function LiveViewPanel({ camera, settings, onClose, onCapture, ccapiClient }: LiveViewPanelProps) {
@@ -25,12 +25,23 @@ export default function LiveViewPanel({ camera, settings, onClose, onCapture, cc
   const [streamError, setStreamError] = useState(false);
   const liveViewImgRef = useRef<HTMLImageElement>(null);
 
-  // Initialize CCAPI live view stream
+  // Initialize live view stream
   useEffect(() => {
     if (ccapiClient) {
-      const url = ccapiClient.getLiveViewStreamUrl();
-      setLiveViewStreamUrl(url);
+      // Start live view and get stream URL
+      ccapiClient.startLiveView().then(url => {
+        setLiveViewStreamUrl(url);
+      }).catch(err => {
+        console.error('Failed to start live view:', err);
+        setStreamError(true);
+      });
     }
+    
+    return () => {
+      if (ccapiClient) {
+        ccapiClient.stopLiveView().catch(() => {});
+      }
+    };
   }, [ccapiClient]);
 
   // Handle capture with flash effect
