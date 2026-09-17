@@ -1,13 +1,16 @@
 import { categories } from '../data/images';
+import { CameraDevice } from '../data/cameras';
 
 interface SidebarProps {
   activeFilter: string;
   setActiveFilter: (filter: string) => void;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
+  connectedCameras?: CameraDevice[];
+  onOpenShooting?: () => void;
 }
 
-export default function Sidebar({ activeFilter, setActiveFilter, searchQuery, setSearchQuery }: SidebarProps) {
+export default function Sidebar({ activeFilter, setActiveFilter, searchQuery, setSearchQuery, connectedCameras = [], onOpenShooting }: SidebarProps) {
   return (
     <aside className="w-60 bg-[#181825] border-r border-[#313244] flex flex-col shrink-0">
       {/* Search */}
@@ -25,6 +28,55 @@ export default function Sidebar({ activeFilter, setActiveFilter, searchQuery, se
           />
         </div>
       </div>
+
+      {/* Connected Cameras */}
+      {connectedCameras.length > 0 && (
+        <div className="px-3 pb-3">
+          <p className="text-xs font-semibold text-[#6c7086] uppercase tracking-wider px-2 mb-2">Connected</p>
+          <div className="space-y-1">
+            {connectedCameras.map((camera) => (
+              <button
+                key={camera.id}
+                onClick={onOpenShooting}
+                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg bg-emerald-500/5 border border-emerald-500/15 hover:bg-emerald-500/10 transition-colors group"
+              >
+                <div className="relative">
+                  <div className="w-7 h-7 rounded-md bg-emerald-500/15 flex items-center justify-center">
+                    <svg className="w-3.5 h-3.5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                  </div>
+                  <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-400 border border-[#181825]"></span>
+                </div>
+                <div className="flex-1 text-left min-w-0">
+                  <p className="text-xs font-medium text-emerald-300 truncate">{camera.name}</p>
+                  <p className="text-[10px] text-[#6c7086] capitalize flex items-center gap-1">
+                    {camera.connectionType === 'tethered' ? (
+                      <>
+                        <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101" />
+                        </svg>
+                        USB
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01" />
+                        </svg>
+                        WiFi
+                      </>
+                    )}
+                  </p>
+                </div>
+                <svg className="w-3.5 h-3.5 text-emerald-400/50 group-hover:text-emerald-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Categories */}
       <div className="px-3 pb-2">
