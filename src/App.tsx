@@ -5,8 +5,9 @@ import ImageGrid from './components/ImageGrid';
 import DetailPanel from './components/DetailPanel';
 import CameraConnectModal from './components/CameraConnectModal';
 import ShootingPanel from './components/ShootingPanel';
+import LiveViewPanel from './components/LiveViewPanel';
 import { images, ImageItem } from './data/images';
-import { availableCameras, CameraDevice, ConnectionType } from './data/cameras';
+import { availableCameras, CameraDevice, ConnectionType, CameraSettings, defaultCameraSettings } from './data/cameras';
 
 export default function App() {
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
@@ -20,7 +21,9 @@ export default function App() {
   const [cameras, setCameras] = useState<CameraDevice[]>(availableCameras);
   const [showConnectModal, setShowConnectModal] = useState(false);
   const [showShootingPanel, setShowShootingPanel] = useState(false);
+  const [showLiveView, setShowLiveView] = useState(false);
   const [activeCameraId, setActiveCameraId] = useState<string | null>(null);
+  const [cameraSettings, setCameraSettings] = useState<CameraSettings>(defaultCameraSettings);
 
   const connectedCameras = cameras.filter(c => c.status === 'connected');
   const activeCamera = cameras.find(c => c.id === activeCameraId) || null;
@@ -73,6 +76,7 @@ export default function App() {
     if (activeCameraId === cameraId) {
       setActiveCameraId(null);
       setShowShootingPanel(false);
+      setShowLiveView(false);
     }
   }, [activeCameraId]);
 
@@ -88,6 +92,14 @@ export default function App() {
     } else {
       setShowConnectModal(true);
     }
+  };
+
+  const handleOpenLiveView = () => {
+    setShowLiveView(true);
+  };
+
+  const handleCloseLiveView = () => {
+    setShowLiveView(false);
   };
 
   return (
@@ -132,6 +144,17 @@ export default function App() {
             </svg>
             {connectedCameras.length > 0 ? 'Cameras' : 'Connect Camera'}
           </button>
+
+          {/* Live View Button */}
+          {connectedCameras.length > 0 && (
+            <button
+              onClick={handleOpenLiveView}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-300 text-xs font-medium transition-all hover:border-red-500/40"
+            >
+              <div className="w-2 h-2 rounded-full bg-red-400 animate-pulse"></div>
+              Live View
+            </button>
+          )}
 
           {/* Shooting Button */}
           {connectedCameras.length > 0 && !showShootingPanel && (
@@ -193,6 +216,9 @@ export default function App() {
               camera={activeCamera}
               onClose={() => setShowShootingPanel(false)}
               onCapture={handleCapture}
+              onOpenLiveView={handleOpenLiveView}
+              settings={cameraSettings}
+              onSettingsChange={setCameraSettings}
             />
           )}
         </div>
@@ -214,6 +240,16 @@ export default function App() {
         onConnect={handleConnectCamera}
         onDisconnect={handleDisconnectCamera}
       />
+
+      {/* Live View Panel */}
+      {showLiveView && activeCamera && (
+        <LiveViewPanel
+          camera={activeCamera}
+          settings={cameraSettings}
+          onClose={handleCloseLiveView}
+          onCapture={handleCapture}
+        />
+      )}
     </div>
   );
 }

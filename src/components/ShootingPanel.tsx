@@ -5,13 +5,15 @@ interface ShootingPanelProps {
   camera: CameraDevice;
   onClose: () => void;
   onCapture: () => void;
+  onOpenLiveView: () => void;
+  settings: CameraSettings;
+  onSettingsChange: (settings: CameraSettings) => void;
 }
 
-export default function ShootingPanel({ camera, onClose, onCapture }: ShootingPanelProps) {
-  const [settings, setSettings] = useState<CameraSettings>(defaultCameraSettings);
+export default function ShootingPanel({ camera, onClose, onCapture, onOpenLiveView, settings, onSettingsChange }: ShootingPanelProps) {
   const [isCapturing, setIsCapturing] = useState(false);
   const [captureFlash, setCaptureFlash] = useState(false);
-  const [liveViewActive, setLiveViewActive] = useState(true);
+  const [liveViewActive, setLiveViewActive] = useState(false);
   const [autoImport, setAutoImport] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
   const [sessionShots, setSessionShots] = useState(0);
@@ -45,6 +47,15 @@ export default function ShootingPanel({ camera, onClose, onCapture }: ShootingPa
         }, 50);
       }
     }, 150);
+  };
+
+  const handleLiveViewToggle = () => {
+    if (!liveViewActive) {
+      setLiveViewActive(true);
+      onOpenLiveView();
+    } else {
+      setLiveViewActive(false);
+    }
   };
 
   return (
@@ -101,7 +112,7 @@ export default function ShootingPanel({ camera, onClose, onCapture }: ShootingPa
         <div className="flex items-center gap-3 flex-1">
           {/* Live View Toggle */}
           <button
-            onClick={() => setLiveViewActive(!liveViewActive)}
+            onClick={handleLiveViewToggle}
             className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
               liveViewActive
                 ? 'bg-red-500/10 text-red-400 border border-red-500/30'
@@ -217,49 +228,49 @@ export default function ShootingPanel({ camera, onClose, onCapture }: ShootingPa
               label="Aperture"
               value={settings.aperture}
               options={['f/1.4', 'f/2', 'f/2.8', 'f/4', 'f/5.6', 'f/8', 'f/11', 'f/16']}
-              onChange={(v: string) => setSettings((prev: CameraSettings) => ({ ...prev, aperture: v }))}
+              onChange={(v: string) => onSettingsChange({ ...settings, aperture: v })}
             />
             <SettingControl
               label="Shutter Speed"
               value={settings.shutterSpeed}
               options={['1/4000', '1/2000', '1/1000', '1/500', '1/250', '1/125', '1/60', '1/30']}
-              onChange={(v: string) => setSettings((prev: CameraSettings) => ({ ...prev, shutterSpeed: v }))}
+              onChange={(v: string) => onSettingsChange({ ...settings, shutterSpeed: v })}
             />
             <SettingControl
               label="ISO"
               value={settings.iso}
               options={['ISO 100', 'ISO 200', 'ISO 400', 'ISO 800', 'ISO 1600', 'ISO 3200', 'ISO 6400']}
-              onChange={(v: string) => setSettings((prev: CameraSettings) => ({ ...prev, iso: v }))}
+              onChange={(v: string) => onSettingsChange({ ...settings, iso: v })}
             />
             <SettingControl
               label="White Balance"
               value={settings.whiteBalance}
               options={['Auto', 'Daylight', 'Cloudy', 'Shade', 'Tungsten', 'Fluorescent', 'Flash']}
-              onChange={(v: string) => setSettings((prev: CameraSettings) => ({ ...prev, whiteBalance: v }))}
+              onChange={(v: string) => onSettingsChange({ ...settings, whiteBalance: v })}
             />
             <SettingControl
               label="Focus Mode"
               value={settings.focusMode}
               options={['AF-S', 'AF-C', 'AF-A', 'Manual']}
-              onChange={(v: string) => setSettings((prev: CameraSettings) => ({ ...prev, focusMode: v }))}
+              onChange={(v: string) => onSettingsChange({ ...settings, focusMode: v })}
             />
             <SettingControl
               label="Drive Mode"
               value={settings.driveMode}
               options={['Single', 'Continuous L', 'Continuous H', 'Self Timer']}
-              onChange={(v: string) => setSettings((prev: CameraSettings) => ({ ...prev, driveMode: v }))}
+              onChange={(v: string) => onSettingsChange({ ...settings, driveMode: v })}
             />
             <SettingControl
               label="Metering"
               value={settings.meteringMode}
               options={['Evaluative', 'Partial', 'Spot', 'Center-weighted']}
-              onChange={(v: string) => setSettings((prev: CameraSettings) => ({ ...prev, meteringMode: v }))}
+              onChange={(v: string) => onSettingsChange({ ...settings, meteringMode: v })}
             />
             <SettingControl
               label="Quality"
               value={settings.imageQuality}
               options={['RAW', 'RAW + JPEG Fine', 'RAW + JPEG Normal', 'JPEG Fine', 'JPEG Normal']}
-              onChange={(v: string) => setSettings((prev: CameraSettings) => ({ ...prev, imageQuality: v }))}
+              onChange={(v: string) => onSettingsChange({ ...settings, imageQuality: v })}
             />
           </div>
         </div>
