@@ -120,27 +120,6 @@ The app uses dedicated API clients for different camera manufacturers, abstracti
 - Try importing in smaller batches.
 - Check file permissions on destination folder.
 
-## 🤝 Contributing & Support
-
-### Contribution Guidelines
-
-1. Fork the repository.
-2. Create a feature branch (`git checkout -b feature/amazing-feature`).
-3. Commit changes with clear messages.
-4. Push to branch and open a Pull Request.
-
-### Development Standards
-
-- Follow ESLint rules.
-- Write tests for new features.
-- Document public APIs.
-
-### Support Channels
-
-- GitHub Issues: For bugs and feature requests.
-- GitHub Discussions: For questions and community support.
-- Email: support@contactsheetpro.com
-
 ## 🗺️ Roadmap
 
 ### Planned Features
