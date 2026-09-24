@@ -12,7 +12,17 @@ Contact Sheet Pro is a professional photography workflow application designed to
 - Image Organization: Grid view, filtering, and detailed metadata panels.
 - Broad Compatibility: Supports Canon, Sony, Nikon, and Fujifilm models.
 
-## 🚀 Quick Start
+## � Screenshots
+
+### Dashboard
+
+![Contact Sheet Pro dashboard](screenshots/dashboard.png)
+
+### Live View
+
+![Contact Sheet Pro live view panel](screenshots/live-view.png)
+
+## �🚀 Quick Start
 
 ### Prerequisites
 
